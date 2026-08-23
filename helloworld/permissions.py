@@ -4,18 +4,19 @@ from rest_framework.permissions import BasePermission
 class IsOwnerOrReadOnly(BasePermission):
 
     def has_permission(self, request, view):
-        # Anyone can read posts
+
+        # Anyone can read
         if request.method in ["GET", "HEAD", "OPTIONS"]:
             return True
 
-        # User must be logged in for changes
-        return request.user and request.user.is_authenticated
+        # Login required for creating/changing/deleting
+        return request.user.is_authenticated
 
     def has_object_permission(self, request, view, obj):
 
-        # Anyone can view a post
+        # Anyone can read
         if request.method in ["GET", "HEAD", "OPTIONS"]:
             return True
 
-        # Only the owner can change or delete the post
+        # Only the owner can change or delete
         return obj.author == request.user
