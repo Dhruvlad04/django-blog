@@ -1,20 +1,29 @@
 from django.db import models
+from django.contrib.auth.models import User
 
 
 class Post(models.Model):
-    # Title of the blog post
+
+    # Blog post title
     title = models.CharField(max_length=200)
 
-    # Main content of the blog
+    # Blog post content
     content = models.TextField()
 
-    # Name of the person who wrote the post
-    author = models.CharField(max_length=100)
+    # The post belongs to one Django user
+    author = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name="posts"
+    )
 
-    # Django automatically stores the creation time
+    # Automatically stores when the post is created
     created_at = models.DateTimeField(auto_now_add=True)
 
-    # This tells whether the post is published or not
+    # Automatically stores when the post is updated
+    updated_at = models.DateTimeField(auto_now=True)
+
+    # True means the post is published
     published = models.BooleanField(default=True)
 
     def __str__(self):

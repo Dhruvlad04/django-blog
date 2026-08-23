@@ -1,63 +1,153 @@
+from django.test import TestCase
 from django.contrib.auth.models import User
-from django.urls import reverse
+
 from rest_framework.test import APITestCase
 from rest_framework import status
 
 from .models import Post
 
 
-class PostAPITests(APITestCase):
+class PostModelTest(TestCase):
+
     def setUp(self):
-        self.author = User.objects.create_user(username="author", password="pass12345")
-        self.other_user = User.objects.create_user(username="other", password="pass12345")
-        self.post = Post.objects.create(
-            title="First Post",
-            content="Some content",
-            author=self.author,
-            status=Post.Status.PUBLISHED,
+
+        self.user = User.objects.create_user(
+            username="dhruv",
+            password="12345678"
         )
-        self.list_url = reverse("post-list")
 
-    def test_list_posts_is_public(self):
-        response = self.client.get(self.list_url)
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
+    def test_create_post(self):
 
-    def test_create_post_requires_authentication(self):
-        response = self.client.post(
-            self.list_url, {"title": "New Post", "content": "Body text"}
+        post = Post.objects.create(
+            title="My First Blog",
+            content="Learning Django REST Framework",
+            author=self.user
         )
-        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
-    def test_authenticated_user_can_create_post(self):
-        self.client.force_authenticate(user=self.author)
-        response = self.client.post(
-            self.list_url, {"title": "New Post", "content": "Body text"}
+        self.assertEqual(
+            post.title,
+            "My First Blog"
         )
-        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        self.assertEqual(response.data["author"]["username"], "author")
 
-    def test_non_author_cannot_update_post(self):
-        self.client.force_authenticate(user=self.other_user)
-        url = reverse("post-detail", args=[self.post.id])
-        response = self.client.patch(url, {"title": "Hacked title"})
-        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(
+            post.author,
+            self.user
+        )
 
-    def test_author_can_update_own_post(self):
-        self.client.force_authenticate(user=self.author)
-        url = reverse("post-detail", args=[self.post.id])
-        response = self.client.patch(url, {"title": "Updated title"})
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(response.data["title"], "Updated title")
+    def test_user_can_have_posts(self):
 
-    def test_filter_by_status(self):
         Post.objects.create(
-            title="Draft Post",
-            content="Draft content",
-            author=self.author,
-            status=Post.Status.DRAFT,
+            title="Django Post",
+            content="Django content",
+            author=self.user
         )
-        response = self.client.get(self.list_url, {"status": "draft"})
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        titles = [p["title"] for p in response.data["results"]]
-        self.assertIn("Draft Post", titles)
-        self.assertNotIn("First Post", titles)
+
+        self.assertEqual(
+            self.user.posts.count(),
+            1
+        )
+
+
+class PostAPITest(APITestCase):
+
+    def setUp(self):
+
+        self.user1 = User.objects.create_user(
+            username="user1",
+            password="12345678"
+        )
+
+        self.user2 = User.objects.create_user(
+            username="user2",
+            password="12345678"
+        )
+
+    def test_user_can_create_post(self):
+
+        self.client.force_authenticate(
+            user=self.user1
+        )
+
+        data = {
+            "title": "User 1 Post",
+            "content": "My first post",
+            "published": True
+        }
+
+        response = self.client.post(
+            "/api/posts/",
+            data
+        )
+
+        self.assertEqual(
+            response.status_code,
+            status.HTTP_201_CREATED
+        )
+
+        self.assertEqual(
+            response.data["author"],
+            "user1"
+        )
+
+    def test_user_can_only_see_own_posts(self):
+
+        Post.objects.create(
+            title="User 1 Post",
+            content="Post 1",
+            author=self.user1
+        )
+
+        Post.objects.create(
+            title="User 2 Post",
+            content="Post 2",
+            author=self.user2
+        )
+
+        self.client.force_authenticate(
+            user=self.user1
+        )
+
+        response = self.client.get(
+            "/api/posts/"
+        )
+
+        self.assertEqual(
+            response.status_code,
+            status.HTTP_200_OK
+        )
+
+        self.assertEqual(
+            len(response.data["results"]),
+            1
+        )
+
+        self.assertEqual(
+            response.data["results"][0]["author"],
+            "user1"
+        )
+
+    def test_user_cannot_modify_other_users_post(self):
+
+        post = Post.objects.create(
+            title="User 2 Post",
+            content="Post 2",
+            author=self.user2
+        )
+
+        self.client.force_authenticate(
+            user=self.user1
+        )
+
+        response = self.client.put(
+            f"/api/posts/{post.id}/",
+            {
+                "title": "Changed",
+                "content": "Changed content",
+                "published": True
+            }
+        )
+
+        self.assertEqual(
+            response.status_code,
+            status.HTTP_404_NOT_FOUND
+        )

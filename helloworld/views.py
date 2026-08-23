@@ -1,25 +1,46 @@
 from rest_framework import viewsets
+from rest_framework.permissions import IsAuthenticated
+
 from .models import Post
 from .serializers import PostSerializer
-from .permissions import IsAuthorOrReadOnly
+from .permissions import IsOwnerOrReadOnly
 from .filters import PostFilter
+
+
 class PostViewSet(viewsets.ModelViewSet):
-    # Get all posts from database
-    queryset = Post.objects.all().order_by("-created_at")
-    # Convert Post objects to JSON
+
     serializer_class = PostSerializer
-    # Apply our permission rules
-    permission_classes = [IsAuthorOrReadOnly]
-    # Enable filtering
+
+    # User must be logged in
+    permission_classes = [
+        IsAuthenticated,
+        IsOwnerOrReadOnly
+    ]
+
     filterset_class = PostFilter
-    # Fields used by the search option
+
+    # Used for search
     search_fields = [
         "title",
-        "content",
-        "author"
+        "content"
     ]
-    # Fields that can be used for ordering
+
+    # Used for ordering
     ordering_fields = [
         "title",
         "created_at"
     ]
+
+    def get_queryset(self):
+
+        # Only return posts belonging to logged-in user
+        return Post.objects.filter(
+            author=self.request.user
+        ).order_by("-created_at")
+
+    def perform_create(self, serializer):
+
+        # Automatically make logged-in user the author
+        serializer.save(
+            author=self.request.user
+        )
