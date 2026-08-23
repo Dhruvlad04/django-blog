@@ -1,5 +1,6 @@
 from rest_framework import viewsets
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.authentication import SessionAuthentication
+from rest_framework.permissions import AllowAny
 
 from .models import Post
 from .serializers import PostSerializer
@@ -11,36 +12,36 @@ class PostViewSet(viewsets.ModelViewSet):
 
     serializer_class = PostSerializer
 
-    # User must be logged in
+    # Use session login from Django/DRF
+    authentication_classes = [
+        SessionAuthentication
+    ]
+
+    # Our permission controls reading and modifying
     permission_classes = [
-        IsAuthenticated,
         IsOwnerOrReadOnly
     ]
 
     filterset_class = PostFilter
 
-    # Used for search
     search_fields = [
         "title",
         "content"
     ]
 
-    # Used for ordering
     ordering_fields = [
         "title",
         "created_at"
     ]
 
+    # Return all posts.
+    # Permission decides who can modify them.
     def get_queryset(self):
+        return Post.objects.all().order_by("-created_at")
 
-        # Only return posts belonging to logged-in user
-        return Post.objects.filter(
-            author=self.request.user
-        ).order_by("-created_at")
-
+    # Automatically save the logged-in user as author
     def perform_create(self, serializer):
 
-        # Automatically make logged-in user the author
         serializer.save(
             author=self.request.user
         )

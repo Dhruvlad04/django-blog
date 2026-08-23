@@ -4,19 +4,23 @@ from django.views.generic import RedirectView
 
 
 urlpatterns = [
-    path("admin/", admin.site.urls),
+
+    path(
+        "admin/",
+        admin.site.urls
+    ),
 
     path(
         "api/",
         include("helloworld.urls")
     ),
 
+    # DRF session login/logout
     path(
         "api-auth/",
         include("rest_framework.urls")
     ),
 
-    # Open API automatically when visiting /
     path(
         "",
         RedirectView.as_view(
